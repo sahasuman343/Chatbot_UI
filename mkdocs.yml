@@ -1,0 +1,64 @@
+site_name: SCM Chatbot Documentation
+site_description: Documentation for the SCM Chatbot application
+site_author: SCM Chatbot Team
+repo_url: https://github.com/yourusername/streamlit_app
+repo_name: SCM Chatbot
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - search.highlight
+    - search.share
+    - search.suggest
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - admonition
+  - footnotes
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Configuration: getting-started/configuration.md
+  - User Guide:
+    - Authentication: user-guide/authentication.md
+    - Chat Interface: user-guide/chat-interface.md
+    - Feedback System: user-guide/feedback-system.md
+    - Admin Dashboard: user-guide/admin-dashboard.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Code Style: development/code-style.md
+    - Testing: development/testing.md
+  - API Reference:
+    - Core Functions: api-reference/core-functions.md
+    - Data Models: api-reference/data-models.md
+  - Deployment:
+    - Requirements: deployment/requirements.md
+    - Environment Setup: deployment/environment-setup.md
+    - Production: deployment/production.md 

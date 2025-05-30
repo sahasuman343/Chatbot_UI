@@ -1,3 +1,14 @@
+"""
+SCM Chatbot - A Streamlit-based chatbot application with user authentication and feedback collection.
+
+This module implements a chatbot interface with the following features:
+- User authentication (regular users and admin)
+- Chat history tracking
+- Feedback collection and analytics
+- Session management
+- Persistent storage of chat logs
+"""
+
 import streamlit as st
 import uuid
 import json
@@ -9,14 +20,29 @@ from collections import defaultdict
 st.set_page_config(page_title="SCM Chatbot")
 
 # --- Simulated Assistant Response Stream ---
-def chat_stream(prompt):
+def chat_stream(prompt: str) -> str:
+    """
+    Simulate a streaming chat response.
+    
+    Args:
+        prompt (str): The user's input message
+        
+    Yields:
+        str: Characters of the response one at a time
+    """
     response = f'You said, "{prompt}" ...interesting.'
     for char in response:
         yield char
         time.sleep(0.02)
 
 # --- Feedback persistence ---
-def save_feedback(index):
+def save_feedback(index: int) -> None:
+    """
+    Save user feedback for a specific message.
+    
+    Args:
+        index (int): Index of the message in chat history
+    """
     st.session_state.chat_history[index]["feedback"] = st.session_state[f"feedback_{index}"]
     save_chat_to_json()
 
@@ -28,7 +54,13 @@ CHAT_LOG_DIR = "chat_logs"
 os.makedirs(CHAT_LOG_DIR, exist_ok=True)
 
 # --- Save chat to JSON file ---
-def save_chat_to_json():
+def save_chat_to_json() -> None:
+    """
+    Save the current chat session to a JSON file.
+    
+    The file is saved in the CHAT_LOG_DIR with format:
+    chat_{username}_{session_id}.json
+    """
     if st.session_state.get("username") and st.session_state.get("chat_history"):
         filename = f"chat_{st.session_state.username}_{st.session_state.session_id}.json"
         filepath = os.path.join(CHAT_LOG_DIR, filename)
@@ -42,7 +74,18 @@ def save_chat_to_json():
             json.dump(data, f, indent=4)
 
 # --- Session Preview Loaders ---
-def get_all_session_previews():
+def get_all_session_previews() -> list:
+    """
+    Get previews of all chat sessions.
+    
+    Returns:
+        list: List of dictionaries containing session previews with keys:
+            - username: User who created the session
+            - session_id: Unique session identifier
+            - preview: First user message in the session
+            - full_data: Complete session data
+            - filename: Name of the session file
+    """
     previews = []
     for filename in os.listdir(CHAT_LOG_DIR):
         if filename.endswith(".json"):
@@ -60,11 +103,28 @@ def get_all_session_previews():
                 })
     return previews
 
-def get_user_session_previews(username):
+def get_user_session_previews(username: str) -> list:
+    """
+    Get previews of chat sessions for a specific user.
+    
+    Args:
+        username (str): Username to filter sessions for
+        
+    Returns:
+        list: List of session previews for the specified user
+    """
     return [s for s in get_all_session_previews() if s["username"] == username]
 
 # --- Feedback Summary Utilities ---
-def get_feedback_summaries():
+def get_feedback_summaries() -> tuple:
+    """
+    Get overall and session-wise feedback summaries.
+    
+    Returns:
+        tuple: (overall_stats, sessionwise_stats)
+            - overall_stats: Dict with total positive/negative feedback counts
+            - sessionwise_stats: Dict with feedback stats per session
+    """
     overall = {"positive": 0, "negative": 0}
     sessionwise = {}
     for filename in os.listdir(CHAT_LOG_DIR):
@@ -92,7 +152,13 @@ def get_feedback_summaries():
     return overall, sessionwise
 
 # --- Sidebar: Admin Chat Sessions + Feedback Summary ---
-def render_sidebar_admin_feedback():
+def render_sidebar_admin_feedback() -> tuple:
+    """
+    Render the admin feedback section in the sidebar.
+    
+    Returns:
+        tuple: (overall_stats, sessionwise_stats) from get_feedback_summaries()
+    """
     st.sidebar.markdown("## 📝 Feedback Summary")
     overall, sessionwise = get_feedback_summaries()
 
@@ -110,7 +176,12 @@ def render_sidebar_admin_feedback():
     return overall, sessionwise
 
 # --- Sidebar: User Sessions (Today + Past 7 Days) ---
-def render_sidebar_chat_history_users():
+def render_sidebar_chat_history_users() -> None:
+    """
+    Render the user's chat history in the sidebar.
+    
+    Shows today's sessions and sessions from the past 7 days.
+    """
     st.sidebar.markdown("## 💬 Your Chat Sessions")
     if st.sidebar.button("🆕 Start New Chat", help="Click to start a new chat session", use_container_width=True):
         st.session_state.session_id = str(uuid.uuid4())
