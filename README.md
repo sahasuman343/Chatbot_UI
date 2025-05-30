@@ -1,6 +1,6 @@
-# SCM Chatbot
+# Chatbot UI
 
-A Streamlit-based chatbot application with user authentication, chat history, and feedback collection features.
+A Streamlit-based generic chatbot application with user authentication, chat history, and feedback collection features for quick poc showcase.
 
 ## Features
 
