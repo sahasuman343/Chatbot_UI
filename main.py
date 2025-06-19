@@ -16,6 +16,7 @@ import os
 from datetime import datetime, timedelta
 import time
 from collections import defaultdict
+import random
 st.set_page_config(
     page_title="SCM Chatbot",
     page_icon="🤖",
@@ -211,7 +212,13 @@ def save_feedback(index: int) -> None:
         index (int): Index of the message in chat history
     """
     st.session_state.chat_history[index]["feedback"] = st.session_state[f"feedback_{index}"]
+    # Save optional comment if negative feedback
+    if st.session_state[f"feedback_{index}"] == 0:
+        comment_key = f"feedback_comment_{index}"
+        comment = st.session_state.get(comment_key, "")
+        st.session_state.chat_history[index]["feedback_comment"] = comment
     save_chat_to_json()
+    st.success("Thanks for your feedback!", icon="👍" if st.session_state.chat_history[index]["feedback"] == 1 else "👎")
 
 # --- Paths and User Config ---
 with open("users.json", "r") as f:
@@ -392,6 +399,35 @@ if "session_id" not in st.session_state:
     st.session_state.session_id = ""
 if "selected_feedback_summary" not in st.session_state:
     st.session_state.selected_feedback_summary = "overall"
+if "onboarded" not in st.session_state:
+    st.session_state.onboarded = False
+if "show_help" not in st.session_state:
+    st.session_state.show_help = False
+if "rename_session" not in st.session_state:
+    st.session_state.rename_session = ""
+
+# --- Helper: Fun Fact or Quote ---
+FUN_QUOTES = [
+    "Did you know? The first chatbot was created in 1966!",
+    "Tip: You can give feedback on every bot response.",
+    "Fun Fact: You can rename your chat sessions from the sidebar!",
+    "Motivation: Every expert was once a beginner.",
+    "Remember: Your feedback helps improve the bot!",
+]
+
+def get_fun_quote():
+    return random.choice(FUN_QUOTES)
+
+# --- Helper: Show Help/FAQ ---
+def render_help():
+    st.markdown("""
+    ### ❓ Help & FAQ
+    - **How do I start a new chat?** Use the 'Start New Chat' button in the sidebar.
+    - **How do I give feedback?** Click the thumbs up/down below each bot response.
+    - **How do I rename or delete a session?** Use the sidebar session options.
+    - **Who can see my chats?** Only you and the admin (for feedback analytics).
+    - **Need more help?** Contact support@example.com
+    """)
 
 # --- Login ---
 if st.session_state.username == "":
@@ -401,10 +437,8 @@ if st.session_state.username == "":
         is_admin = st.checkbox("Login as admin")
     with col2:
         st.markdown("### Welcome!")
-    
     username_input = st.text_input("Username", placeholder="Enter your username")
     password_input = st.text_input("Password", type="password", placeholder="Enter your password") if is_admin else None
-    
     if st.button("Login", use_container_width=True):
         username = username_input.strip()
         password = password_input.strip() if is_admin else None
@@ -413,6 +447,7 @@ if st.session_state.username == "":
                 st.session_state.username = username
                 st.session_state.session_id = str(uuid.uuid4())
                 st.session_state.chat_history = []
+                st.session_state.onboarded = False
                 st.rerun()
             else:
                 st.error("Invalid admin credentials.")
@@ -421,6 +456,7 @@ if st.session_state.username == "":
                 st.session_state.username = username
                 st.session_state.session_id = str(uuid.uuid4())
                 st.session_state.chat_history = []
+                st.session_state.onboarded = False
                 st.rerun()
             else:
                 st.error("Invalid username.")
@@ -429,26 +465,35 @@ if st.session_state.username == "":
 if st.session_state.username:
     with st.sidebar:
         st.markdown(f"### Welcome, {st.session_state.username}!")
+        st.markdown(f"**Fun Fact:** _{get_fun_quote()}_")
         st.markdown("---")
-        
+        if st.button("❓ Help / FAQ", use_container_width=True):
+            st.session_state.show_help = not st.session_state.show_help
+        if st.session_state.show_help:
+            render_help()
+            st.markdown("---")
         if st.session_state.username == "admin":
             overall_feedback, sessionwise_feedback = render_sidebar_admin_feedback()
         else:
             render_sidebar_chat_history_users()
-        
         st.markdown("---")
         if st.button("Logout", use_container_width=True):
             st.session_state.username = ""
             st.session_state.session_id = ""
             st.session_state.chat_history = []
             st.session_state.selected_feedback_summary = "overall"
+            st.session_state.onboarded = False
+            st.session_state.show_help = False
             st.rerun()
+
+# --- Onboarding for New Users ---
+if st.session_state.username and not st.session_state.onboarded:
+    st.info(f"👋 Hi {st.session_state.username}! Welcome to SCM Chatbot.\n\n- Start chatting below.\n- Use the sidebar to view, rename, or delete sessions.\n- Click the thumbs to give feedback!\n- Need help? Click 'Help / FAQ' in the sidebar.")
+    st.session_state.onboarded = True
 
 # --- Admin Feedback Dashboard with Feedback Summary ---
 if st.session_state.username == "admin":
     st.title("Admin Feedback Dashboard")
-    
-    # Show feedback summary based on sidebar selection
     selected = st.session_state.get("selected_feedback_summary", "overall")
     if selected == "overall":
         st.subheader("Overall Feedback Summary")
@@ -461,17 +506,17 @@ if st.session_state.username == "admin":
         info = sessionwise_feedback[selected]
         st.subheader(f"Session Feedback: {info['username']}")
         st.caption(f"Session from: {info['timestamp'][:19]}")
-        
         col1, col2 = st.columns(2)
         with col1:
             st.metric("Positive Feedback", info["positive"])
         with col2:
             st.metric("Negative Feedback", info["negative"])
-        
         st.markdown("### Chat History")
         for i, msg in enumerate(info["full_data"]["chat_history"]):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["message"])
+                if "timestamp" in msg:
+                    st.caption(f"Sent at: {msg['timestamp']}")
                 if msg["role"] == "assistant":
                     feedback = msg.get("feedback", "No Feedback")
                     st.caption(f"Feedback: {'👍' if feedback == 1 else '👎' if feedback == 0 else '❓'}")
@@ -479,22 +524,43 @@ if st.session_state.username == "admin":
 # --- Regular Chat View ---
 elif st.session_state.username:
     st.title("SCM Chatbot")
-    
-    # Add back to top button
     st.markdown("""
         <div class="back-to-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
             ↑
         </div>
     """, unsafe_allow_html=True)
-    
     st.success(f"Welcome back, {st.session_state.username}! (Session ID: `{st.session_state.session_id}`)")
-    
-    # Chat container with improved styling
+    # --- Session Rename/Delete ---
+    if st.session_state.session_id:
+        with st.expander("Session Options", expanded=False):
+            st.session_state.rename_session = st.text_input("Rename this session", value=st.session_state.get("session_name", ""), key="rename_session_input")
+            if st.button("Save Name", key="save_rename"):
+                st.session_state.session_name = st.session_state.rename_session
+                st.success("Session renamed!")
+            if st.button("Delete This Session", key="delete_session"):
+                # Remove session file if exists
+                filename = f"chat_{st.session_state.username}_{st.session_state.session_id}.json"
+                filepath = os.path.join(CHAT_LOG_DIR, filename)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                st.session_state.session_id = str(uuid.uuid4())
+                st.session_state.chat_history = []
+                st.success("Session deleted.")
+                st.rerun()
+    # --- Chat container with improved styling, timestamps, avatars, feedback confirmation ---
     chat_container = st.container()
+    last_role = None
     with chat_container:
         for i, message in enumerate(st.session_state.chat_history):
+            # Group messages visually if same sender
+            # if last_role != message["role"]:
+                # st.markdown(f"--- **{message['role'].capitalize()}** ---")
+            last_role = message["role"]
+            avatar = "👤" if message["role"] == "user" else "🤖"
             with st.chat_message(message["role"]):
-                st.markdown(message["message"])
+                st.markdown(f"{avatar} {message['message']}")
+                if "timestamp" in message:
+                    st.caption(f"Sent at: {message['timestamp']}")
                 if message["role"] == "assistant":
                     st.session_state[f"feedback_{i}"] = message.get("feedback")
                     col1, col2 = st.columns([6, 1])
@@ -506,17 +572,35 @@ elif st.session_state.username:
                             on_change=save_feedback,
                             args=[i],
                         )
-    
-    # Chat input with tooltip
-    user_input = st.chat_input("💭 Type your message here...", key="chat_input")
+                    # Show comment box and submit button only for negative feedback and not yet submitted
+                    if st.session_state.get(f"feedback_{i}") == 0 and not message.get("feedback_comment"):
+                        st.text_area(
+                            "Optional: Tell us what could be improved?",
+                            key=f"feedback_comment_{i}",
+                            placeholder="Your comment (optional)",
+                            max_chars=100,
+                            height=10  # Very small height (about 2 lines)
+                        )
+                        comment = st.session_state.get(f"feedback_comment_{i}", "")
+                        if st.button("Submit", key=f"submit_feedback_comment_{i}", help="Submit comment", use_container_width=False):
+                            st.session_state.chat_history[i]["feedback_comment"] = comment
+                            save_chat_to_json()
+                            st.success("Comment submitted! Thank you.")
+                    if message.get("feedback") is not None:
+                        st.success("Thanks for your feedback!", icon="👍" if message["feedback"] == 1 else "👎")
+    # --- Chat input with tooltip, typing indicator, and timestamped messages ---
+    user_input = st.chat_input("Type your message here...", key="chat_input")
     if user_input:
-        st.session_state.chat_history.append({"role": "user", "message": user_input})
+        from datetime import datetime
+        st.session_state.chat_history.append({"role": "user", "message": user_input, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
         with st.chat_message("user"):
-            st.markdown(user_input)
+            st.markdown(f"👤 {user_input}")
+            st.caption(f"Sent at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         with st.chat_message("assistant"):
+            st.markdown("_Bot is typing..._")
             with st.spinner("🤔 Thinking..."):
                 response = st.write_stream(chat_stream(user_input))
-        st.session_state.chat_history.append({"role": "assistant", "message": response})
+        st.session_state.chat_history.append({"role": "assistant", "message": response, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
         col1, col2 = st.columns([6, 1])
         with col2:
             st.feedback(
